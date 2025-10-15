@@ -1,11 +1,10 @@
-# runpod_handler.py
 import runpod
 import logging
-from datetime import datetime
-from app import generate_description
-from flask import Flask, jsonify
 import threading
 import time
+from datetime import datetime
+from flask import Flask, jsonify
+from app import generate_description
 
 # ==========================================================
 # 🧾 Logging Configuration
@@ -23,12 +22,15 @@ health_app = Flask(__name__)
 
 @health_app.route("/health", methods=["GET"])
 def health():
-    return jsonify({"status": "ok", "message": "Model ready!"})
+    return jsonify({"status": "ok", "message": "distilgpt2 model is healthy!"})
 
 def start_health_server():
     """Starts healthcheck server on port 8080 in a background thread."""
-    logger.info("🩺 Starting healthcheck server on port 8080...")
-    health_app.run(host="0.0.0.0", port=8080, debug=False, use_reloader=False)
+    try:
+        logger.info("🩺 Starting healthcheck server on port 8080...")
+        health_app.run(host="0.0.0.0", port=8080, debug=False, use_reloader=False)
+    except Exception as e:
+        logger.error(f"❌ Healthcheck server failed to start: {e}")
 
 # Start healthcheck server in a separate thread
 threading.Thread(target=start_health_server, daemon=True).start()
@@ -57,5 +59,25 @@ def handler(event):
         # Generate description
         result = generate_description(original, tone, language)
 
-        elapsed = time.time() - start_time
-        lo
+        elapsed = round(time.time() - start_time, 2)
+        logger.info(f"✅ Completed in {elapsed} seconds.")
+
+        return {
+            "timestamp": datetime.utcnow().isoformat(),
+            "input_text": original,
+            "tone": tone,
+            "language": language,
+            "enhanced_description": result,
+            "processing_time_sec": elapsed,
+        }
+
+    except Exception as e:
+        logger.error(f"❌ Error in handler: {e}", exc_info=True)
+        return {"error": str(e)}
+
+# ==========================================================
+# 🏁 Entry Point — RunPod Serverless
+# ==========================================================
+if __name__ == "__main__":
+    logger.info("🚀 Starting RunPod serverless handler...")
+    runpod.serverless.start({"handler": handler})
