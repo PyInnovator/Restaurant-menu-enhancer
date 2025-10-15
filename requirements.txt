@@ -1,12 +1,5 @@
 flask
-flask-cors
-transformers
-safetensors
-accelerate
 deep-translator
-python-dotenv
-runpod
-sentencepiece
-requests
-gunicorn
+transformers
 torch
+runpod

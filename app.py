@@ -3,7 +3,6 @@ import os
 import logging
 from deep_translator import GoogleTranslator as Translator
 from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
-import os
 
 # ------------------------------
 # Logging
@@ -12,38 +11,28 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # ------------------------------
-# Hugging Face Token
-# ------------------------------
-
-HF_TOKEN = os.getenv("HF_TOKEN")
-
-# ------------------------------
 # Model Setup (Lazy Load)
 # ------------------------------
-MODEL_NAME = "deepseek-ai/DeepSeek-V3.1"
+MODEL_NAME = "distilgpt2"  # Small, fast model for testing
 pipe = None  # lazy init
-
 
 def get_pipeline():
     """Load model only once per container (lazy init)."""
     global pipe
     if pipe is None:
-        logger.info("🚀 Loading DeepSeek-V3.1 model for the first time...")
+        logger.info(f"🚀 Loading {MODEL_NAME} model for the first time...")
 
-        tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, use_auth_token=HF_TOKEN)
-        model = AutoModelForCausalLM.from_pretrained(
-            MODEL_NAME, use_auth_token=HF_TOKEN, torch_dtype="auto"
-        )
+        tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
+        model = AutoModelForCausalLM.from_pretrained(MODEL_NAME)
 
         pipe = pipeline(
             "text-generation",
             model=model,
             tokenizer=tokenizer,
-            device=0 if torch.cuda.is_available() else -1,
+            device=0 if os.environ.get("CUDA_VISIBLE_DEVICES") else -1,
         )
         logger.info("✅ Model loaded successfully.")
     return pipe
-
 
 translator = Translator()
 
@@ -51,7 +40,7 @@ translator = Translator()
 # Tone Instructions
 # ------------------------------
 TONE_INSTRUCTIONS = {
-    "default": "Write in a balanced, natural restaurant style that is clear and appetizing.",
+    "default": "Write in a clear and appetizing restaurant style.",
     "premium": "Write in a premium, high-end tone, highlighting exclusivity and top quality.",
 }
 
@@ -83,11 +72,11 @@ Enhanced description:
 
     try:
         pipe = get_pipeline()
-        outputs = pipe(prompt, max_new_tokens=200, temperature=0.3, top_p=0.9)
+        outputs = pipe(prompt, max_new_tokens=100, temperature=0.7, top_p=0.9)
         result = outputs[0]["generated_text"]
 
         if language.lower() != "en":
-            result = Translator(source="en", target=language).translate(result)
+            result = translator.translate(result, source="en", target=language)
 
         return result.strip()
 
